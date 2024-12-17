@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Space Replacer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/main.js"></script>
+
+</head>
+<body>
+
+
+
+    <h1>Ad Replacement Tool</h1>
+
+    <!-- Open Webpage and Restart -->
+    <div>
+        <input type="text" id="url" placeholder="Enter website URL">
+        <button onclick="openWebpage()">Open Website</button>
+        <button onclick="resetApp()">Restart</button>
+    </div>
+
+    <!-- Manual Size Input -->
+    <div id="size-input" style="display:none; margin-top: 15px;">
+        <h3>Specify Rectangle Dimensions</h3>
+        <label>Width: <input type="number" id="rect-width" placeholder="Width"></label>
+        <label>Height: <input type="number" id="rect-height" placeholder="Height"></label>
+    </div>
+
+    <!-- Take Screenshot -->
+    <button id="screenshot-btn" onclick="takeScreenshot()" style="display:none;">Take Screenshot</button>
+
+    <!-- Screenshot Display -->
+    <div id="screenshot-container" style="position:relative; margin-top: 20px;">
+        <h3 id="hover-instructions" style="display:none;">Hover and Click to Mark Ad Space</h3>
+        <img id="screenshot" src="" onmousemove="previewRectangle(event)" onclick="lockRectangle(event)">
+        <div id="hover-rectangle"></div>
+    </div>
+
+    <!-- File Upload -->
+    <div id="upload-section" style="display:none;">
+        <h3>Upload Replacement Creative</h3>
+        <input type="file" id="file" accept="image/*">
+        <button onclick="uploadCreative()">Upload Creative</button>
+    </div>
+
+    <!-- Updated Image -->
+    <div id="updated-container" style="display:none;">
+        <h3>Updated Image</h3>
+        <img id="updated-image" src="">
+        <a id="download-link" href="#">Download Updated Image</a>
+    </div>
+
+    <!-- Status Messages -->
+    <div id="status" style="margin-top: 20px;"></div>
+
+</body>
+</html>
