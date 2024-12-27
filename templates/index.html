@@ -32,8 +32,8 @@
     <button id="screenshot-btn" onclick="takeScreenshot()" style="display:none;">Take Screenshot</button>
 
     <!-- Screenshot Display -->
+    <h3 id="hover-instructions" style="display:none;">Hover and Click to Mark Ad Space</h3>
     <div id="screenshot-container" style="position:relative; margin-top: 20px;">
-        <h3 id="hover-instructions" style="display:none;">Hover and Click to Mark Ad Space</h3>
         <img id="screenshot" src="" onmousemove="previewRectangle(event)" onclick="lockRectangle(event)">
         <div id="hover-rectangle"></div>
     </div>
@@ -50,7 +50,11 @@
         <h3>Updated Image</h3>
         <img id="updated-image" src="">
         <a id="download-link" href="#">Download Updated Image</a>
+        <button onclick="goBackToMarkRectangle()">Go Back</button>
+        <button id="restart-btn" onclick="resetApp()" style="display: none;">Restart</button>
+
     </div>
+
 
     <!-- Status Messages -->
     <div id="status" style="margin-top: 20px;"></div>

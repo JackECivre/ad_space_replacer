@@ -66,10 +66,17 @@ input[type="text"], input[type="number"], input[type="file"] {
     border-radius: 5px;
 }
 
+#screenshot {
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: block;
+}
+
 /* Hover Rectangle */
 #hover-rectangle {
     position: absolute;
-    border: 2px dashed rgba(255, 0, 0, 0.8);
+    border: 1px dashed rgba(255, 0, 0, 0.8);
     background: rgba(255, 0, 0, 0.2);
     display: none;
     pointer-events: none;
@@ -171,4 +178,18 @@ input[type="text"], input[type="number"], input[type="file"] {
     #screenshot-container img {
         width: 100%;
     }
+}
+#updated-container button {
+    padding: 8px 12px;
+    background-color: #ffc107;
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 10px;
+}
+
+#updated-container button:hover {
+    background-color: #e0a800;
 }

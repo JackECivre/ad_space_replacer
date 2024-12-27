@@ -8,6 +8,24 @@ function showStatus(message, type = "info") {
     statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
 }
 
+async function updateZoomFactor() {
+    try {
+        const response = await fetch('/get_zoom_factor');
+        const data = await response.json();
+
+        if (response.ok) {
+            zoomFactor = data.zoomFactor || 1;
+            console.log(`Updated Zoom Factor: ${zoomFactor}`);
+            showStatus("Zoom factor updated.", "success");
+        } else {
+            showStatus(`Error fetching zoom factor: ${data.error}`, "error");
+        }
+    } catch (error) {
+        console.error("Zoom Factor Update Error:", error);
+        showStatus("Failed to update zoom factor.", "error");
+    }
+}
+
 // Open the user-specified webpage and receive zoom factor
 async function openWebpage() {
     const url = document.getElementById("url").value;
@@ -40,8 +58,9 @@ async function openWebpage() {
     }
 }
 
-// Capture full-page screenshot and send dimensions
+// Example: Call this before capturing a screenshot
 async function takeScreenshot() {
+    await updateZoomFactor(); // Update zoom factor before taking a screenshot
     showStatus("Capturing screenshot...", "info");
 
     try {
@@ -50,11 +69,10 @@ async function takeScreenshot() {
 
         if (data.path) {
             const screenshot = document.getElementById("screenshot");
-            screenshot.src = `/${data.path}`;
+            screenshot.src = `/${data.path}?t=${new Date().getTime()}`;;
             originalWidth = data.width;
             originalHeight = data.height;
 
-            // Wait for the image to load to calculate scaling
             screenshot.onload = () => calculateScaleFactors();
             document.getElementById("hover-instructions").style.display = "block";
             document.getElementById("size-input").style.display = "block";
@@ -80,69 +98,174 @@ function previewRectangle(event) {
     if (lockedRect) return;
 
     const rect = document.getElementById("hover-rectangle");
+    const screenshot = document.getElementById("screenshot");
+    const screenshotUrl = `/static/screenshots/full_page.png?t=${new Date().getTime()}`;
+    document.getElementById("screenshot").src = screenshotUrl;
+    console.log("Screenshot URL:", screenshotUrl);
+
+
+    // Get image boundaries
+    const imgRect = screenshot.getBoundingClientRect();
+
+    // Calculate cursor position relative to the image
+    const cursorX = event.clientX - imgRect.left;
+    const cursorY = event.clientY - imgRect.top;
+
     const widthInput = parseInt(document.getElementById("rect-width").value) || 200;
     const heightInput = parseInt(document.getElementById("rect-height").value) || 100;
 
-    // Adjust dimensions using zoom and scaling factors
-    const scaledWidth = Math.round(widthInput  * scaleFactorX);
-    const scaledHeight = Math.round(heightInput *  scaleFactorY);
+    // Adjust dimensions using scaling factors
+    const scaledWidth = Math.round(widthInput * scaleFactorX);
+    const scaledHeight = Math.round(heightInput * scaleFactorY);
 
-    rect.style.left = `${event.offsetX}px`;
-    rect.style.top = `${event.offsetY}px`;
+    // Set rectangle properties
+    rect.style.left = `${cursorX}px`;
+    rect.style.top = `${cursorY}px`;
     rect.style.width = `${scaledWidth}px`;
     rect.style.height = `${scaledHeight}px`;
     rect.style.display = "block";
 
-    hoverRect = { x: event.offsetX, y: event.offsetY, width: scaledWidth, height: scaledHeight };
+    // Update hoverRect with adjusted coordinates
+    hoverRect = {
+        x: cursorX,
+        y: cursorY,
+        width: scaledWidth+2,
+        height: scaledHeight+2
+    };
 }
 
 // Lock the rectangle when clicked
-function lockRectangle() {
-    if (!hoverRect) return;
+function lockRectangle(event) {
+    const screenshot = document.getElementById("screenshot");
+    const imgRect = screenshot.getBoundingClientRect();
 
+    const lockedX = Math.round((event.clientX - imgRect.left) * (originalWidth / imgRect.width));
+    const lockedY = Math.round((event.clientY - imgRect.top) * (originalHeight / imgRect.height));
+    const widthInput = parseInt(document.getElementById("rect-width").value) || 200;
+    const heightInput = parseInt(document.getElementById("rect-height").value) || 100;
+
+    // Use zoomFactor for adjustments
     lockedRect = {
-        x: Math.round(hoverRect.x / scaleFactorX * zoomFactor),
-        y: Math.round(hoverRect.y / scaleFactorY * zoomFactor),
-        width: Math.round(hoverRect.width / scaleFactorX * zoomFactor),
-        height: Math.round(hoverRect.height / scaleFactorY * zoomFactor)
+        x: Math.round(lockedX / zoomFactor),
+        y: Math.round(lockedY / zoomFactor),
+        width: Math.round(widthInput * zoomFactor),
+        height: Math.round(heightInput * zoomFactor),
+        zoomFactor: zoomFactor, // Ensure the correct zoom factor is attached
     };
 
-    document.getElementById("upload-section").style.display = "block";
-    document.getElementById("hover-rectangle").style.display = "none";
+    console.log("Locked Rectangle with Zoom Factor:", lockedRect);
+
     showStatus(
-        `Locked rectangle at (${lockedRect.x}, ${lockedRect.y}), size ${lockedRect.width}x${lockedRect.height}.`,
+        `Rectangle locked at (${lockedRect.x}, ${lockedRect.y}), size ${lockedRect.width}x${lockedRect.height}, Zoom: ${zoomFactor}`,
         "success"
     );
+
+    // Display the upload section
+    document.getElementById("upload-section").style.display = "block";
+
+    // Scroll to the upload section
+    const uploadSection = document.getElementById("upload-section");
+    uploadSection.scrollIntoView({ behavior: "smooth" }); // Smoothly scroll to the section
 }
 
 // Upload and replace the locked rectangle
 async function uploadCreative() {
-    const fileInput = document.getElementById("file").files[0];
-    if (!fileInput || !lockedRect) {
-        return showStatus("Please lock a rectangle and upload a file.", "error");
+    const fileInput = document.getElementById("file");
+    const formData = new FormData();
+
+    if (!fileInput.files.length || !lockedRect) {
+        showStatus("Please lock a rectangle and select a file before uploading.", "error");
+        return;
     }
 
-    showStatus("Uploading creative...", "info");
-    const formData = new FormData();
-    formData.append("file", fileInput);
-    Object.entries(lockedRect).forEach(([key, value]) => formData.append(key, value));
+    const originalFileName = fileInput.files[0].name.split('.')[0]; // Get file name without extension
+    const webpageUrl = document.getElementById("url").value;
 
+    // Append locked rectangle details and zoom factor to the form data
+    formData.append("x", lockedRect.x);
+    formData.append("y", lockedRect.y);
+    formData.append("width", lockedRect.width);
+    formData.append("height", lockedRect.height);
+    formData.append("zoomFactor", lockedRect.zoomFactor);
+    formData.append("file", fileInput.files[0]);
+
+    console.log("Sending Form Data:", {
+        x: lockedRect.x,
+        y: lockedRect.y,
+        width: lockedRect.width,
+        height: lockedRect.height,
+        zoomFactor: lockedRect.zoomFactor,
+    });
+
+    // Send request to the backend
     try {
-        const response = await fetch("/upload_creative", { method: "POST", body: formData });
+        const response = await fetch("/upload_creative", {
+            method: "POST",
+            body: formData,
+        });
         const data = await response.json();
 
-        if (data.path) {
-            document.getElementById("updated-image").src = `/${data.path}`;
-            document.getElementById("download-link").href = "/download";
-            document.getElementById("updated-container").style.display = "block";
-            showStatus("Creative replaced successfully!", "success");
+        if (data.error) {
+            console.error("Error:", data.error);
+            showStatus("Error: " + data.error, "error");
         } else {
-            showStatus(`Error: ${data.error}`, "error");
+            console.log("Creative uploaded successfully:", data.path);
+            showStatus("Creative uploaded successfully!", "success");
+
+            // Display the updated image
+            const updatedImage = document.getElementById("updated-image");
+            updatedImage.src = `/static/updated/updated_image.png?t=${new Date().getTime()}`;
+
+
+            document.getElementById("updated-container").style.display = "block";
+
+            // Update the download link dynamically
+            const downloadLink = document.getElementById("download-link");
+            downloadLink.href = `/download?original_name=${encodeURIComponent(originalFileName)}&webpage_url=${encodeURIComponent(webpageUrl)}`;
+
+            downloadLink.style.display = "inline-block"; // Show the download button
+
+            // Move and show the restart button at the very bottom
+            const restartButton = document.getElementById("restart-btn");
+            restartButton.style.display = "inline-block"; // Ensure it's visible
+            restartButton.style.marginTop = "20px"; // Add spacing
+            restartButton.style.position = "relative"; // Ensure proper positioning
+            restartButton.scrollIntoView({ behavior: "smooth" }); // Scroll to the button
         }
     } catch (error) {
         console.error("Upload Error:", error);
-        showStatus("An error occurred while replacing the creative.", "error");
+        showStatus("An error occurred while uploading the creative.", "error");
     }
+}
+
+function goBackToMarkRectangle() {
+    // Reset the locked rectangle data
+    lockedRect = null;
+
+    // Clear the uploaded file input
+    const fileInput = document.getElementById("file");
+    fileInput.value = ""; // Reset the file input field
+
+    // Hide the updated container
+    document.getElementById("updated-container").style.display = "none";
+
+    // Show instructions and size input for marking the rectangle
+    document.getElementById("hover-instructions").style.display = "block";
+    document.getElementById("size-input").style.display = "block";
+
+    // Reset the hover rectangle display
+    const hoverRectangle = document.getElementById("hover-rectangle");
+    hoverRectangle.style.display = "none";
+
+    // Clear any previous creative preview or updates
+    const updatedImage = document.getElementById("updated-image");
+    updatedImage.src = ""; // Clear the updated image
+
+    const downloadLink = document.getElementById("download-link");
+    downloadLink.href = "#"; // Reset the download link
+
+    // Allow user to re-mark the rectangle
+    showStatus("You can mark the rectangle again. Previous selection and uploaded creative cleared.", "info");
 }
 
 // Reset application state
@@ -151,6 +274,7 @@ async function resetApp() {
     await fetch("/reset", { method: "POST" });
     window.location.reload();
 }
+
 
 // Initialize event listeners
 document.getElementById("screenshot").addEventListener("mousemove", previewRectangle);
